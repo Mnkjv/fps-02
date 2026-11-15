@@ -33,6 +33,8 @@ const GAME_MAX_BYTES = 50331648; // 48 MiB
 const SHOT_MAX_COUNT = 4;
 const SHOT_MAX_BYTES = 262144; // 256 KiB each
 
+// Count a directory tree the way the scorer counts it: files AND
+// directories toward the entry cap, file bytes toward the size cap.
 function walk(dir: string, base: string, acc: { files: number; bytes: number }): void {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
@@ -80,3 +82,7 @@ const dossier = buildDossier(out, {
 });
 writeFileSync(join(out, 'dossier.json'), dossier);
 console.log(`sable-protocol: handed in ${gameStats.files} game files (${gameStats.bytes} bytes), ${shots.length} screenshots, dossier ${dossier.length} bytes`);
+
+// The game design itself lives under game/src/: config.js holds every
+// tuning number, world.js the Foundry, match.js the round rules. This
+// file never changes the game — it only refuses, copies, and hands in.
