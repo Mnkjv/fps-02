@@ -20,7 +20,7 @@ export const WORLD = {
 // A box: x/z centre, width/depth, height from the ground, a palette key and
 // whether it is low cover (blocks crouched sight and bullets, not standing
 // sight lines over it).
-const BOXES = [
+export const BOXES = [
   // Perimeter is handled by the wall clamp; these are the interior solids.
   // The furnace block in mid: two masses with a gap a player can slip through.
   { x: 0, z: -4, w: 10, d: 5, h: 4.2, mat: 'furnace' },
@@ -268,12 +268,12 @@ export function buildWorld(scene) {
   const group = new THREE.Group();
   scene.add(group);
 
-  scene.background = new THREE.Color(0x1a2027);
-  scene.fog = new THREE.Fog(0x1a2027, 55, 130);
+  scene.background = new THREE.Color(0x27333f);
+  scene.fog = new THREE.Fog(0x27333f, 55, 130);
 
-  const hemi = new THREE.HemisphereLight(0xbdd3e0, 0x3a3128, 0.85);
+  const hemi = new THREE.HemisphereLight(0xcfe2ee, 0x3a3128, 1.35);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffe3b3, 1.6);
+  const sun = new THREE.DirectionalLight(0xffe3b3, 2.5);
   sun.position.set(28, 42, 14);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);

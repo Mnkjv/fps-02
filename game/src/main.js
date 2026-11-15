@@ -23,14 +23,20 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 320);
+scene.add(camera); // the view-model gun is a child of the camera: it only renders if the camera is in the scene
 buildWorld(scene);
 
 const match = new Match(scene, camera);
 const hud = new Hud(match);
 match.player.attachInput(canvas);
+// A handle for the browser console and for automated smoke tests: the
+// whole match state is inspectable while the game runs.
+window.__sable = { match, hud, scene };
 
 const params = new URLSearchParams(window.location.search);
 const shotMode = params.get('shot');
@@ -96,26 +102,31 @@ function poseShot() {
   const p = match.player;
   if (shotMode === 'start') {
     hud.setBuyVisible(true);
-    p.yaw = 2.6;
-    p.pitch = -0.04;
+    p.yaw = 0.72; // across the yard from the EMBER spawn, teammates in frame
+    p.pitch = -0.03;
     return;
   }
   match.phase = 'live';
   match.phaseT = 74;
   if (shotMode === 'play') {
-    // A lane fight near the furnace: the player holds the corner, two
-    // EMBER push, two SABLE hold the far side.
-    p.pos.set(-7.5, 0, 3.2);
-    p.yaw = Math.atan2(-(2 - p.pos.x), -(-14 - p.pos.z));
-    p.pitch = -0.02;
+    // The site A approach fight: the player holds the lane mouth south of
+    // the choke container, two EMBER push with them, two SABLE hold the
+    // site end of the lane. Everyone is ordered to hold, so the fight
+    // happens in frame. (Sight lines verified against the collision map.)
+    p.pos.set(-6, 0, -8);
+    p.yaw = Math.atan2(-(-16 - p.pos.x), -(-14 - p.pos.z));
+    p.pitch = -0.04;
     p.equipPrimary('ar7');
     const [e1, e2] = match.emberBots;
-    e1.pos.set(-4.5, 0, 6.5); e1.yaw = 2.6; e1.equipPrimary('ar7');
-    e2.pos.set(-10.5, 0, 7.5); e2.yaw = 2.9; e2.equipPrimary('kestrel');
+    e1.pos.set(-9, 0, -11); e1.yaw = 1.0; e1.equipPrimary('ar7');
+    e2.pos.set(-3, 0, -13); e2.yaw = 1.2; e2.equipPrimary('kestrel');
     const [s1, s2] = match.sableBots;
-    s1.pos.set(2.5, 0, -13.5); s1.yaw = -0.7; s1.equipPrimary('ar7'); s1.crouch = true;
-    s2.pos.set(6.5, 0, -10); s2.yaw = -1.1; s2.equipPrimary('ar7');
-    for (const b of [...match.emberBots, ...match.sableBots]) b.syncFigure();
+    s1.pos.set(-16, 0, -14); s1.yaw = -2.1; s1.equipPrimary('ar7'); s1.crouch = true;
+    s2.pos.set(-22, 0, -21); s2.yaw = -2.0; s2.equipPrimary('ar7');
+    for (const b of [...match.emberBots, ...match.sableBots]) {
+      b.order = { kind: 'hold' };
+      b.syncFigure();
+    }
     return;
   }
   if (shotMode === 'end') {
@@ -125,10 +136,15 @@ function poseShot() {
     const fallen = match.sableBots[0];
     fallen.health = 0;
     fallen.alive = false;
-    fallen.pos.set(-3, 0, -6);
+    fallen.pos.set(0, 0, -1);
     fallen.syncFigure();
-    p.pos.set(-5.5, 0, -2.5);
+    const mate = match.emberBots[0];
+    mate.pos.set(3, 0, 2);
+    mate.yaw = -0.4;
+    mate.syncFigure();
+    p.pos.set(-1.5, 0, 9);
     p.yaw = Math.atan2(-(fallen.pos.x - p.pos.x), -(fallen.pos.z - p.pos.z));
+    p.pitch = -0.13;
     p.equipPrimary('ar7');
     hud.announce('ROUND WON by elimination', 'good');
     hud.setScoreboardVisible(true);

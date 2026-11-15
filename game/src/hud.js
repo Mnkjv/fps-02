@@ -172,8 +172,8 @@ export class Hud {
     ctx.fillRect(0, 0, S, S);
     ctx.fillStyle = '#2a3138';
     for (const b of BOXES) {
-      const [x0, z0] = toMap(b.minX, b.minZ);
-      const [x1, z1] = toMap(b.maxX, b.maxZ);
+      const [x0, z0] = toMap(b.x - b.w / 2, b.z - b.d / 2);
+      const [x1, z1] = toMap(b.x + b.w / 2, b.z + b.d / 2);
       ctx.fillRect(x0, z0, x1 - x0, z1 - z0);
     }
     for (const id of ['A', 'B']) {
