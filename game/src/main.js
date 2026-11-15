@@ -10,6 +10,7 @@
 // mode poses deterministic scenes for the entry screenshots.
 
 import * as THREE from 'three';
+import { MATCH } from './config.js';
 import { buildWorld } from './world.js';
 import { Match } from './match.js';
 import { Hud } from './hud.js';
@@ -108,6 +109,13 @@ function poseShot() {
   }
   match.phase = 'live';
   match.phaseT = 74;
+  if (shotMode === 'play' && params.get('free')) {
+    // Free-play soak mode: no posing at all — the squads play a genuine
+    // round from their spawns under their real orders, watched from the
+    // EMBER spawn. Used by the automated end-to-end test.
+    match.phaseT = MATCH.roundSeconds;
+    return;
+  }
   if (shotMode === 'play') {
     // The site A approach fight: the player holds the lane mouth south of
     // the choke container, two EMBER push with them, two SABLE hold the
