@@ -28,18 +28,22 @@ export function makeWeaponState(id) {
 export function applyDamage(target, rawDamage, isHead) {
   let dmg = rawDamage; // the head multiplier, if any, was applied by the shooter
   if (target.armor > 0) {
-    const absorbed = dmg * ARMOR_ABSORB;
+    // Armour can only absorb what it has: each point of armour soaks two
+    // points of incoming damage at the ARMOR_ABSORB rate.
+    const absorbed = Math.min(dmg * ARMOR_ABSORB, target.armor * 2);
     target.armor = Math.max(0, target.armor - absorbed * 0.5);
     dmg -= absorbed;
   }
+  const before = target.health;
   target.health = Math.max(0, target.health - dmg);
   if (target.health <= 0) target.alive = false;
-  return dmg;
+  return before - target.health;
 }
 
 // Does a ray from `origin` along `dir` pass through the sphere? Returns the
-// distance along the ray, or Infinity. Used for body and head hit tests.
-function raySphere(origin, dir, center, radius) {
+// distance along the ray, or Infinity. Used for body and head hit tests —
+// the bots shoot through the same test, so nobody gets a fairer ray.
+export function raySphere(origin, dir, center, radius) {
   const ox = center.x - origin.x;
   const oy = center.y - origin.y;
   const oz = center.z - origin.z;
@@ -48,7 +52,9 @@ function raySphere(origin, dir, center, radius) {
   const d2 = ox * ox + oy * oy + oz * oz - tca * tca;
   const r2 = radius * radius;
   if (d2 > r2) return Infinity;
-  return tca - Math.sqrt(r2 - d2);
+  const thc = Math.sqrt(r2 - d2);
+  if (tca - thc >= 0) return tca - thc;
+  return tca + thc >= 0 ? 0 : Infinity; // the eye starts inside the sphere
 }
 
 // The hit zones of a standing or crouching actor, as spheres in world space.
@@ -91,10 +97,18 @@ export class Player {
     this.boundMouseMove = (e) => this.onMouseMove(e);
     this.boundMouseDown = (e) => { if (e.button === 0) this.mouseDown = true; };
     this.boundMouseUp = (e) => { if (e.button === 0) this.mouseDown = false; };
+    // If focus or the pointer lock is lost mid-press, no keyup/mouseup may
+    // ever arrive — clear the input state so nothing sticks on.
+    this.boundBlur = () => { this.keys.clear(); this.mouseDown = false; };
+    this.boundLockChange = () => { if (!document.pointerLockElement) this.boundBlur(); };
   }
 
   setViewModel(weaponId) {
-    if (this.viewModel) this.camera.remove(this.viewModel);
+    if (this.viewModel) {
+      this.camera.remove(this.viewModel);
+      // Free the old gun's geometries; the materials are shared and stay.
+      this.viewModel.traverse((o) => o.geometry?.dispose?.());
+    }
     this.viewModel = buildViewModel(weaponId);
     this.camera.add(this.viewModel);
   }
@@ -130,6 +144,8 @@ export class Player {
     window.addEventListener('mousemove', this.boundMouseMove);
     dom.addEventListener('mousedown', this.boundMouseDown);
     window.addEventListener('mouseup', this.boundMouseUp);
+    window.addEventListener('blur', this.boundBlur);
+    document.addEventListener('pointerlockchange', this.boundLockChange);
   }
 
   detachInput(dom) {
@@ -138,6 +154,8 @@ export class Player {
     window.removeEventListener('mousemove', this.boundMouseMove);
     dom.removeEventListener('mousedown', this.boundMouseDown);
     window.removeEventListener('mouseup', this.boundMouseUp);
+    window.removeEventListener('blur', this.boundBlur);
+    document.removeEventListener('pointerlockchange', this.boundLockChange);
   }
 
   onKey(e, down) {
@@ -249,11 +267,11 @@ export class Player {
       this.startReload();
       return;
     }
-    this.fireTimer = 60 / def.rpm;
+    this.fireTimer += 60 / def.rpm; // keep the overshoot: rate stays honest at any frame rate
     st.mag -= 1;
     this.bloom = Math.min(6, this.bloom + 1);
     this.vmKick = Math.min(1, this.vmKick + 0.55);
-    this.pitch += def.kick; // recoil climbs; the player pulls it back down
+    this.pitch = Math.min(1.45, this.pitch + def.kick); // recoil climbs, never past vertical
     sfx.shot(def.id);
     const origin = this.eyePos();
     const spread = this.moving ? def.spreadMove : def.spreadStill;

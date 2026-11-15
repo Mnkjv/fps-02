@@ -86,18 +86,18 @@ export const WAYPOINTS = [
   { id: 2, x: -7, z: 10, links: [1, 3, 18] },
   { id: 3, x: -3, z: 0, links: [2, 5, 17] }, // mid west
   { id: 4, x: 8, z: -3, links: [13, 17, 19] }, // mid east
-  { id: 5, x: -11, z: -7, links: [3, 6, 20] }, // a link
+  { id: 5, x: -14, z: -10, links: [3, 6, 20] }, // a link
   { id: 6, x: -16, z: -12, links: [5, 7] }, // a door
   { id: 7, x: -19, z: -19, links: [6, 8], site: 'A' },
-  { id: 8, x: -25, z: -25, links: [7, 16], site: 'A' },
+  { id: 8, x: -22, z: -22, links: [7, 16], site: 'A' },
   { id: 9, x: 10, z: 9, links: [11, 19, 21] }, // b link
   { id: 10, x: 14, z: 13, links: [9, 11] }, // b door
   { id: 11, x: 19, z: 19, links: [10, 12], site: 'B' },
   { id: 12, x: 25, z: 25, links: [11, 15], site: 'B' },
   { id: 13, x: 16, z: -16, links: [4, 14, 22] }, // sable yard
   { id: 14, x: 6, z: -19, links: [13, 16, 17] }, // sable to A
-  { id: 15, x: -2, z: 26, links: [1, 12, 21] }, // south lane
-  { id: 16, x: 2, z: -26, links: [8, 14, 22] }, // north lane
+  { id: 15, x: -6, z: 23, links: [1, 12, 21] }, // south lane
+  { id: 16, x: 2, z: -22, links: [8, 14, 22] }, // north lane
   { id: 17, x: -1, z: -11, links: [3, 4, 14] }, // mid north
   { id: 18, x: -13, z: 4, links: [2, 20] },
   { id: 19, x: 6, z: 3, links: [4, 9] },
@@ -199,11 +199,13 @@ function segmentHitsBox(ax, az, bx, bz, b, pad = 0) {
   return true;
 }
 
-// Line of sight at standing eye height: low cover never blocks it, crates
-// and taller solids do.
+// Line of sight between two actors. The sight line runs at head height —
+// 1,62 m standing, about 1,27 m crouched — so cover up to roughly 1,25 m
+// never blocks it (a crouched head still peeks over a 1,1 m crate), while
+// taller solids do. Low cover never blocks.
 export function losClear(ax, az, bx, bz) {
   for (const b of BOXES) {
-    if (b.low || b.h < 1.0) continue;
+    if (b.low || b.h < 1.25) continue;
     if (segmentHitsBox(ax, az, bx, bz, b)) return false;
   }
   return true;
@@ -233,7 +235,19 @@ export function raycastWorld(origin, dir, maxDist = 200) {
         if (tmin > tmax) { hit = false; break; }
       }
     }
-    if (hit && tmin < nearest && tmin > 0) nearest = tmin;
+    if (hit && tmin < nearest) nearest = tmin; // tmin 0 = the eye starts inside the box
+  }
+  // The ground plane and the four yard walls are solid too.
+  if (dir.y < -1e-9) {
+    const t = -origin.y / dir.y;
+    if (t > 0 && t < nearest) nearest = t;
+  }
+  for (const axis of ['x', 'z']) {
+    if (Math.abs(dir[axis]) < 1e-9) continue;
+    for (const wall of [-WORLD.half, WORLD.half]) {
+      const t = (wall - origin[axis]) / dir[axis];
+      if (t > 0 && t < nearest) nearest = t;
+    }
   }
   return nearest;
 }

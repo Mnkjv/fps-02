@@ -84,14 +84,21 @@ export function damageAt(weapon, distance) {
 
 // A firing direction with spread applied. `bloom` grows while a trigger is
 // held (spraying walks the muzzle), which is the other half of the accuracy
-// model: bursts stay tight, long sprays wander.
+// model: bursts stay tight, long sprays wander. The deviation is sampled on
+// a disk in the plane perpendicular to the shot, so accuracy is the same
+// whatever compass direction the shooter faces.
 export function spreadDirection(dir, spread, bloom, rng) {
   const total = spread * (1 + bloom);
-  const out = dir.clone();
-  out.x += (rng.next() * 2 - 1) * total;
-  out.y += (rng.next() * 2 - 1) * total;
-  out.z += (rng.next() * 2 - 1) * total;
-  return out.normalize();
+  if (total <= 0) return dir.clone();
+  const helper = Math.abs(dir.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+  const u = new THREE.Vector3().crossVectors(dir, helper).normalize();
+  const v = new THREE.Vector3().crossVectors(dir, u);
+  const angle = rng.next() * Math.PI * 2;
+  const radius = total * Math.sqrt(rng.next());
+  return dir.clone()
+    .addScaledVector(u, Math.cos(angle) * radius)
+    .addScaledVector(v, Math.sin(angle) * radius)
+    .normalize();
 }
 
 // Short-lived visual effects, pooled so a firefight never allocates.
